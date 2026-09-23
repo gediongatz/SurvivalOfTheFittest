@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/tick.js": { "maxDuration": 30 },
+    "api/state.js": { "maxDuration": 15 }
+  }
+}

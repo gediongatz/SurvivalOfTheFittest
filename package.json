@@ -1,0 +1,9 @@
+{
+  "name": "snake-broadcast",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One continuous, server-side Snake Evolution simulation, broadcast read-only to every visitor.",
+  "dependencies": {
+    "@upstash/redis": "^1.34.0"
+  }
+}
