@@ -1,116 +1,129 @@
 # Snake Evolution — Live Broadcast
 
-One Red-vs-Blue snake simulation, started once, that keeps running on the
-server forever. Every visitor sees the *same* live state — nobody can
-start, pause, or configure it. It's a broadcast, not a toy.
+A Red-vs-Blue snake simulation that runs continuously on the server, forever.
+Every visitor sees the same live state — nobody can start, pause, or configure it
+(except via the hidden admin panel).
 
-## How it stays running on free Vercel
+## Architecture
 
-Vercel serverless functions don't run continuously — they wake up per
-request and get killed shortly after. So instead of "one process running
-for years," this works by:
+```
+GitHub Actions (every 1 min, free)
+        │
+        ▼
+  /api/tick ──── advances simulation ──── Upstash Redis (free tier)
+        │
+        ▼
+  /api/state  ◄─── browser polls every 20s
+        │
+        ▼
+  Browser replays the packet locally via requestAnimationFrame
+```
 
-1. The full simulation state (every snake, every apple, the clock) lives
-   as one JSON blob in **Upstash Redis** (free tier via Vercel's Storage
-   tab), not in memory.
-2. **`/api/tick`** loads that state, advances it by however much real
-   time has passed since the last tick (usually ~60s), and saves it
-   back. While it's doing that, it also **records everything that
-   happened** — every move, birth, death, and apple spawn, each tagged
-   with the exact simulated moment it occurred — into a compact "replay
-   packet," saved alongside the state. It's meant to be pinged **once a
-   minute** by an external scheduler.
-3. **`/api/state`** is what the viewer page fetches. It's a cheap,
-   cacheable read: one Redis GET, no writes, no locking. It returns the
-   latest replay packet along with the current authoritative snapshot.
-4. The **browser replays that packet locally**, in real time, using
-   `requestAnimationFrame` — applying each move/birth/death/apple event
-   at the exact moment it's timestamped for. That's what makes the
-   motion look smooth even though the browser only fetches a new packet
-   every ~20 seconds: it's not just showing you a snapshot, it's
-   replaying a recorded minute of actual simulation history, the same
-   way a video player buffers a chunk and then plays it smoothly rather
-   than redrawing only when a new chunk arrives.
-5. Vercel's own free Cron only fires **once a day** on the Hobby plan —
-   nowhere near often enough — so an external free cron service pings
-   `/api/tick` every minute instead. Everything else stays on Vercel.
+- **Server records** each minute of simulation as a timestamped replay packet.
+- **Browser plays it back** smoothly at 60fps without hitting the server every frame.
+- Only ~1,440 Redis writes/day + 1 read per 20s per viewer — well within free quotas.
 
-This design keeps Redis usage low on purpose: roughly **one write per
-minute** (from the cron tick) and **one read per ~20 seconds per
-viewer** (well within Upstash's free 500K-commands/month quota even with
-several people watching at once), because the expensive part — replaying
-motion smoothly — happens for free in the visitor's own browser instead
-of costing a database request every frame.
+---
 
-## Setup
+## Setup Guide
 
-### 1. Push this to GitHub
-Create a new repo and push this folder as-is.
+### 1. Push to GitHub
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git push -u origin main
+```
 
 ### 2. Import into Vercel
-New Project → import the repo → **Framework Preset: Other** → leave
-Build Command / Output Directory blank → Deploy.
+1. Go to [vercel.com](https://vercel.com) → **New Project**
+2. Import your GitHub repo
+3. **Framework Preset**: `Other`
+4. Leave Build Command and Output Directory blank
+5. Click **Deploy**
 
-### 3. Add a free Redis database
-In the Vercel project → **Storage** tab → **Create Database** → choose
-**Upstash Redis** (or "KV", which is Upstash-backed) → connect it to
-this project. Vercel will auto-inject the env vars. Check which names it
-used (`UPSTASH_REDIS_REST_URL`/`TOKEN` or `KV_REST_API_URL`/`TOKEN`) —
-`lib/store.js` already checks both, so either works.
+### 3. Add Upstash Redis
+1. In your Vercel project → **Storage** tab → **Create Database** → **Upstash Redis**
+2. Connect it to this project — Vercel auto-injects the env vars
+3. The app handles both naming conventions:
+   - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (new)
+   - `KV_REST_API_URL` / `KV_REST_API_TOKEN` (older Vercel KV style)
 
-### 4. Add two secrets
-Project → Settings → Environment Variables:
-- `CRON_SECRET` — any random string, protects `/api/tick`
-- `ADMIN_SECRET` — any random string, protects `/api/reset`
+### 4. Add environment variables in Vercel
+Project → **Settings** → **Environment Variables**:
 
-Redeploy after adding them (env var changes need a redeploy to take effect).
+| Variable | Value |
+|---|---|
+| `CRON_SECRET` | Any random string (e.g. `openssl rand -hex 20`) |
 
-### 5. Set up the free external cron
-Go to **[cron-job.org](https://cron-job.org)** (free, no card needed) →
-create an account → create a new cron job:
-- URL: `https://YOUR-APP.vercel.app/api/tick?secret=YOUR_CRON_SECRET`
-- Schedule: every 1 minute
-- Save and enable it
+> Redeploy after adding env vars for them to take effect.
 
-(GitHub Actions' `schedule:` trigger is a free alternative if you'd
-rather keep it inside GitHub, but it can't reliably go faster than
-~every 5 minutes on the free tier, so cron-job.org is the better fit here.)
+### 5. Set up GitHub Actions secrets
+In your GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+
+| Secret name | Value |
+|---|---|
+| `VERCEL_APP_URL` | `https://your-app.vercel.app` (no trailing slash) |
+| `CRON_SECRET` | Same value you set in Vercel above |
+
+The GitHub Actions workflow (`.github/workflows/tick.yml`) will then automatically
+ping `/api/tick` every minute — keeping the simulation alive **forever**, even with
+zero active viewers, **completely free**.
 
 ### 6. Visit your site
-`https://YOUR-APP.vercel.app` — the first visit creates the simulation
-(genesis). Within a minute of the cron job firing, you'll see it moving.
-As long as the cron job keeps running and Upstash's free tier holds the
-data, it keeps going indefinitely — years, in principle.
+- **Viewer**: `https://your-app.vercel.app`
+- **Admin panel**: `https://your-app.vercel.app/AdminGedionSnakesCoexistance`
 
-## If you ever want to restart it
-Visit `https://YOUR-APP.vercel.app/api/reset?secret=YOUR_ADMIN_SECRET`
-(POST or just GET in a browser both work here) — wipes the saved state
-and starts a fresh genesis with the same baked-in parameters.
+On the first visit, the simulation is created (genesis). Within 1 minute the
+GitHub Actions cron fires and the simulation starts advancing.
 
-## Changing the starting parameters
-They're intentionally not viewer-configurable — that was the point. To
-change species speed/agility, board size, apple count, etc., edit
-`DEFAULT_CFG` in `lib/simulation.js`, then hit `/api/reset` (above) to
-apply it to a fresh run.
+---
 
-## Free-tier limits worth knowing
-- **Upstash Redis free tier** is 500,000 commands/month and 256MB
-  storage. This design uses roughly 1,440 writes/day (one per cron tick)
-  plus one read every ~20s per active viewer — a handful of people
-  watching around the clock stays comfortably inside the free quota. If
-  you ever expect a big crowd of simultaneous viewers, you can widen the
-  viewer poll interval in `index.html` (`setInterval(poll, 20000)`) to
-  reduce reads further, since each packet already covers ~60s of replay.
-- **If nobody pings `/api/tick` and nobody is viewing the page**, the
-  simulation simply doesn't advance during that gap — there's no free
-  way around this on Vercel serverless (no persistent process = no
-  ticking with zero requests). The cron job is what guarantees it keeps
-  moving even with zero visitors.
-- Each replay packet is roughly 300–400KB of JSON (gzip-compressed to
-  well under 100KB over the wire by Vercel automatically), covering a
-  full minute of simulated history for up to 60 snakes. If you raise
-  `maxSnakes` in `lib/simulation.js`, packet size and `/api/tick`'s
-  compute time both grow roughly proportionally — keep an eye on it if
-  you do.
-"# SurvivalOfTheFittest" 
-"# SurvivalOfTheFittest" 
+## Admin Panel
+
+Visit `/AdminGedionSnakesCoexistance` to:
+- Adjust grid size, snake speeds, agility, apple count, lifespan, and more
+- Click **Start Simulation** to apply new parameters and restart from a fresh genesis
+- Monitor live Red/Blue populations and the simulation clock
+
+> ⚠️ Keep this URL private. There is no login — the obscure URL is the only protection.
+
+---
+
+## Restarting the simulation
+Use the **Admin Panel** → **Start Simulation** button. This wipes the state and
+starts fresh with whatever parameters you configure.
+
+Alternatively, POST directly:
+```bash
+curl -X POST https://your-app.vercel.app/api/admin-control \
+  -H "Content-Type: application/json" \
+  -d '{"cols":70,"rows":45,"appleCount":6}'
+```
+
+---
+
+## Changing parameters without a restart
+Edit `DEFAULT_CFG` in `lib/simulation.js`, then use the admin panel to restart.
+
+---
+
+## Free-tier limits
+
+| Resource | Free allowance | This app's usage |
+|---|---|---|
+| Upstash Redis | 500K commands/month | ~1,440 writes/day + 1 read/20s/viewer |
+| GitHub Actions | 2,000 min/month | ~1,440 min/month (1/min × 24h × 30d) |
+| Vercel Hobby | Unlimited serverless invocations | 1,440/day from cron + viewer reads |
+
+With a handful of simultaneous viewers this stays comfortably inside all free quotas.
+
+---
+
+## Notes
+- Each replay packet is ~300–400KB JSON (Vercel compresses automatically to <100KB).
+- If you raise `maxSnakes`, packet size and tick compute time grow proportionally.
+- GitHub Actions `schedule:` can lag by up to ~10 minutes under heavy GitHub load,
+  but averages ~1 minute and is free indefinitely.

@@ -1,6 +1,12 @@
 {
-  "functions": {
-    "api/tick.js": { "maxDuration": 30 },
-    "api/state.js": { "maxDuration": 15 }
-  }
+  "rewrites": [
+    {
+      "source": "/AdminGedionSnakesCoexistance",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
 }

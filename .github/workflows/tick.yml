@@ -1,0 +1,31 @@
+name: Simulation Tick
+
+on:
+  schedule:
+    # Runs every minute — keeps the simulation advancing even with zero viewers.
+    # GitHub Actions free tier supports this indefinitely at no cost.
+    - cron: '* * * * *'
+  workflow_dispatch:
+    # Allows you to manually trigger a tick from the GitHub Actions tab.
+
+jobs:
+  tick:
+    name: Advance simulation by one tick
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping /api/tick
+        run: |
+          echo "Pinging tick endpoint at $(date -u)"
+          RESPONSE=$(curl -fsS -w "\n%{http_code}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/tick?secret=${{ secrets.CRON_SECRET }}" \
+            --max-time 30 2>&1)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          echo "HTTP $HTTP_CODE: $BODY"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 400 ]; then
+            echo "Tick failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "Tick OK"

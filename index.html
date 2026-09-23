@@ -4,41 +4,82 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Snake Evolution — Live Broadcast</title>
+<meta name="description" content="A perpetual Red vs Blue snake evolution simulation running live on the server, broadcast to every visitor.">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
   :root{
     --bg:#0b0d10; --panel:#13161b; --panel-line:#23272e; --ink:#d7dbe0; --dim:#7a8290;
     --red:#ff4d4f; --red-dim:#7a2426; --blue:#3fa9ff; --blue-dim:#1d4a73; --apple:#f4c542;
-    --mono:"JetBrains Mono","SF Mono",Consolas,"Courier New",monospace;
+    --mono:'JetBrains Mono','SF Mono',Consolas,'Courier New',monospace;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);
-    display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px;}
-  h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 4px;font-weight:600;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);
+    display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px;
+    min-height:100vh;
+  }
+
+  /* ── Header ── */
+  .header{display:flex;flex-direction:column;align-items:center;margin-bottom:18px;}
+  h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 0;font-weight:700;}
   h1 span.r{color:var(--red)} h1 span.b{color:var(--blue)}
-  .live{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:#ff6b6b;letter-spacing:.1em;margin-left:8px;}
-  .live .dot{width:6px;height:6px;border-radius:50%;background:#ff4d4f;animation:pulse 1.4s infinite;}
+  .live{
+    display:inline-flex;align-items:center;gap:6px;font-size:10px;
+    color:#ff6b6b;letter-spacing:.1em;margin-left:10px;
+  }
+  .live .dot{
+    width:6px;height:6px;border-radius:50%;background:#ff4d4f;
+    animation:pulse 1.4s infinite;
+  }
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
-  .subtitle{color:var(--dim);font-size:11px;letter-spacing:.04em;margin-bottom:18px;text-align:center;max-width:560px;}
+
+  /* ── Board ── */
   .board-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:900px;}
-  #stage{position:relative;border:1px solid var(--panel-line);border-radius:6px;overflow:hidden;background:#0e1013;width:100%;}
+  #stage{
+    position:relative;border:1px solid var(--panel-line);border-radius:8px;
+    overflow:hidden;background:#0e1013;width:100%;
+    box-shadow:0 0 40px rgba(63,169,255,.05),0 0 80px rgba(255,77,79,.04);
+  }
   canvas{display:block;width:100%;height:auto;}
-  .panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:6px;}
+
+  /* ── Stats panel ── */
+  .panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:8px;}
   .stats{display:flex;width:100%;font-size:12px;flex-wrap:wrap;}
   .stat{flex:1;min-width:110px;padding:10px 14px;border-right:1px solid var(--panel-line);}
   .stat:last-child{border-right:none;}
   .stat .k{color:var(--dim);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
   .stat .v{font-size:15px;font-weight:700;white-space:nowrap;}
   .stat.r .v{color:var(--red)} .stat.b .v{color:var(--blue)}
+
+  /* ── Clock ── */
+  .clock-wrap{
+    width:100%;padding:10px 16px;
+    display:flex;align-items:center;justify-content:center;gap:0;
+    border-top:1px solid var(--panel-line);flex-wrap:wrap;
+  }
+  .clock-unit{display:flex;flex-direction:column;align-items:center;padding:4px 10px;}
+  .clock-unit .cv{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:.02em;line-height:1;}
+  .clock-unit .ck{font-size:8px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
+  .clock-sep{font-size:20px;color:var(--panel-line);align-self:flex-start;padding-top:6px;font-weight:700;}
+
+  /* ── Legend & meta ── */
   .legend{display:flex;gap:16px;font-size:10.5px;color:var(--dim);flex-wrap:wrap;justify-content:center;}
   .legend .dot2{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle;}
   .meta{color:var(--dim);font-size:10px;margin-top:4px;text-align:center;}
-  .offline{color:#ff8a80;font-size:11px;margin-top:6px;display:none;}
+  .offline{
+    color:#ff8a80;font-size:11px;margin-top:6px;display:none;
+    padding:6px 14px;background:rgba(255,77,79,.08);border:1px solid rgba(255,77,79,.2);border-radius:6px;
+  }
 </style>
 </head>
 <body>
 
-<h1><span class="r">RED</span> vs <span class="b">BLUE</span> — Snake Evolution <span class="live"><span class="dot"></span>LIVE</span></h1>
-<div class="subtitle">One continuous simulation, shared by every visitor. The server records what happens and your browser plays it back smoothly — you're watching it, not driving it.</div>
+<div class="header">
+  <h1>
+    <span class="r">RED</span> vs <span class="b">BLUE</span> — Snake Evolution
+    <span class="live"><span class="dot"></span>LIVE</span>
+  </h1>
+</div>
 
 <div class="board-wrap">
   <div id="stage"><canvas id="c"></canvas></div>
@@ -48,7 +89,20 @@
       <div class="stat r"><div class="k">Red population</div><div class="v" id="redPop">–</div></div>
       <div class="stat b"><div class="k">Blue population</div><div class="v" id="bluePop">–</div></div>
       <div class="stat"><div class="k">Apples eaten</div><div class="v" id="applesEaten">–</div></div>
-      <div class="stat" style="flex:1.8;"><div class="k">Running for</div><div class="v" id="elapsed" style="font-size:13px;">–</div></div>
+    </div>
+    <!-- Clock row -->
+    <div class="clock-wrap" id="clockWrap">
+      <div class="clock-unit"><div class="cv" id="ck-yr">0</div><div class="ck">Yr</div></div>
+      <div class="clock-sep">:</div>
+      <div class="clock-unit"><div class="cv" id="ck-mo">0</div><div class="ck">M</div></div>
+      <div class="clock-sep">:</div>
+      <div class="clock-unit"><div class="cv" id="ck-d">0</div><div class="ck">D</div></div>
+      <div class="clock-sep">:</div>
+      <div class="clock-unit"><div class="cv" id="ck-h">00</div><div class="ck">Hrs</div></div>
+      <div class="clock-sep">:</div>
+      <div class="clock-unit"><div class="cv" id="ck-min">00</div><div class="ck">Min</div></div>
+      <div class="clock-sep">:</div>
+      <div class="clock-unit"><div class="cv" id="ck-sec">00</div><div class="ck">Sec</div></div>
     </div>
   </div>
 
@@ -69,10 +123,6 @@
   const offlineMsg = document.getElementById('offlineMsg');
 
   // --- Live playback model -------------------------------------------
-  // Rebuilt from the server's replay packet each time a new one arrives,
-  // then advanced locally every animation frame by replaying events at
-  // their real recorded timestamps. This is what gives smooth motion
-  // while only fetching from the server every ~20s.
   let liveSnakes = new Map();   // id -> { species, birth, segments:[{x,y},...] }
   let liveApples = new Map();   // "x,y" -> {x,y}
   let cols = 70, rows = 45, lifespanMs = 30000;
@@ -81,23 +131,26 @@
 
   let playback = null; // { events, windowStartGameTime, windowMs, clientAnchorMs, appliedIndex }
 
-  function formatTime(ms){
-    let s = Math.floor(ms/1000);
-    const years = Math.floor(s / 31536000); s -= years*31536000;
-    const months = Math.floor(s / 2592000); s -= months*2592000;
-    const days = Math.floor(s / 86400); s -= days*86400;
-    const hours = Math.floor(s / 3600); s -= hours*3600;
-    const minutes = Math.floor(s / 60);
-    const seconds = s % 60;
-    const hh = String(hours).padStart(2,'0');
-    const mm = String(minutes).padStart(2,'0');
-    const ss = String(seconds).padStart(2,'0');
-    let out = '';
-    if(years>0) out += years+'y ';
-    if(years>0 || months>0) out += months+'mo ';
-    if(years>0 || months>0 || days>0) out += days+'d ';
-    out += hh+':'+mm+':'+ss;
-    return out;
+  // ── Clock display ──────────────────────────────────────────────────
+  function setClockPart(id, val, pad){
+    const el = document.getElementById(id);
+    if(el) el.textContent = pad ? String(val).padStart(2,'0') : String(val);
+  }
+
+  function updateClock(ms){
+    let totalSec = Math.floor(ms / 1000);
+    const years  = Math.floor(totalSec / 31536000); totalSec -= years  * 31536000;
+    const months = Math.floor(totalSec / 2592000);  totalSec -= months * 2592000;
+    const days   = Math.floor(totalSec / 86400);    totalSec -= days   * 86400;
+    const hours  = Math.floor(totalSec / 3600);     totalSec -= hours  * 3600;
+    const minutes= Math.floor(totalSec / 60);
+    const seconds= totalSec % 60;
+    setClockPart('ck-yr',  years,   false);
+    setClockPart('ck-mo',  months,  false);
+    setClockPart('ck-d',   days,    false);
+    setClockPart('ck-h',   hours,   true);
+    setClockPart('ck-min', minutes, true);
+    setClockPart('ck-sec', seconds, true);
   }
 
   const STAGE_COLORS = {
@@ -113,10 +166,8 @@
   }
 
   // Event shapes: ['m',id,t,x,y,ate] | ['b',id,t,species,segsFlat] | ['d',id,t] | ['as',t,x,y]
-  // 't' sits at a different index for 'as' since it has no id field.
   function eventTime(e){ return e[0] === 'as' ? e[1] : e[2]; }
 
-  // --- Applying one recorded event to the live model ------------------
   function applyEvent(e){
     const type = e[0];
     if(type === 'm'){
@@ -124,12 +175,8 @@
       const snake = liveSnakes.get(id);
       if(!snake) return;
       snake.segments.unshift({x, y});
-      if(ate){
-        liveApples.delete(x+','+y);
-        appleEatenCount++;
-      } else {
-        snake.segments.pop();
-      }
+      if(ate){ liveApples.delete(x+','+y); appleEatenCount++; }
+      else { snake.segments.pop(); }
     } else if(type === 'b'){
       const id = e[1], t = e[2], species = e[3], segsFlat = e[4];
       liveSnakes.set(id, { species, birth: t, segments: segsFlat.map(p => ({x:p[0], y:p[1]})) });
@@ -149,9 +196,8 @@
     liveApples = new Map();
     for(const a of packet.baseApples) liveApples.set(a.x+','+a.y, {x:a.x, y:a.y});
     appleEatenCount = baseAppleEatenCount;
-
     playback = {
-      events: packet.events, // already time-ordered as recorded
+      events: packet.events,
       windowStartGameTime: packet.windowStartGameTime,
       windowMs: packet.windowMs,
       clientAnchorMs: performance.now(),
@@ -184,6 +230,12 @@
     ctx2d.fillStyle = '#0e1013';
     ctx2d.fillRect(0,0,canvasEl.width,canvasEl.height);
 
+    // subtle grid lines
+    ctx2d.strokeStyle = 'rgba(255,255,255,0.02)';
+    ctx2d.lineWidth = 0.5;
+    for(let x=0;x<=cols;x++){ ctx2d.beginPath();ctx2d.moveTo(x*cellSize,0);ctx2d.lineTo(x*cellSize,rows*cellSize);ctx2d.stroke(); }
+    for(let y=0;y<=rows;y++){ ctx2d.beginPath();ctx2d.moveTo(0,y*cellSize);ctx2d.lineTo(cols*cellSize,y*cellSize);ctx2d.stroke(); }
+
     ctx2d.fillStyle = '#f4c542';
     for(const a of liveApples.values()){
       const cx = a.x*cellSize+cellSize/2, cy = a.y*cellSize+cellSize/2;
@@ -193,7 +245,7 @@
 
     const gameTimeNow = currentGameTime();
     for(const s of liveSnakes.values()){
-      const palette = STAGE_COLORS[s.species][lifeStage(s.birth, gameTimeNow)];
+      const palette = STAGE_COLORS[s.species] ? STAGE_COLORS[s.species][lifeStage(s.birth, gameTimeNow)] : STAGE_COLORS.red.mid;
       for(let i=s.segments.length-1;i>=0;i--){
         const seg = s.segments[i];
         ctx2d.fillStyle = i===0 ? palette.head : palette.body;
@@ -209,28 +261,24 @@
     document.getElementById('redPop').textContent = red;
     document.getElementById('bluePop').textContent = blue;
     document.getElementById('applesEaten').textContent = appleEatenCount;
-    document.getElementById('elapsed').textContent = formatTime(currentGameTime());
+    updateClock(currentGameTime());
     if(startedAt){
       document.getElementById('startedMeta').textContent = 'Broadcast started ' + new Date(startedAt).toLocaleString();
     }
   }
 
-  // --- Fetch loop: pulls a fresh packet well before the current one runs out
   async function poll(){
     try{
       const res = await fetch('/api/state', {cache:'no-store'});
-      if(res.status === 202){ return; } // still initializing
+      if(res.status === 202){ return; }
       if(!res.ok) throw new Error('bad status '+res.status);
       const data = await res.json();
       offlineMsg.style.display = 'none';
-
       cols = data.cols; rows = data.rows; lifespanMs = data.lifespanMs;
       startedAt = data.startedAt;
-
       if(data.packet){
         loadPacket(data.packet, data.appleEatenCount - data.packet.events.filter(e=>e[0]==='m'&&e[5]).length);
       } else if(liveSnakes.size === 0){
-        // no packet yet (very first tick hasn't run) — seed static positions so it's not empty
         liveSnakes = new Map(data.snakes.map(s => [s.id, { species: s.species, birth: s.birth, segments: s.segments }]));
         liveApples = new Map(data.apples.map(a => [a.x+','+a.y, a]));
         appleEatenCount = data.appleEatenCount;
@@ -249,7 +297,7 @@
   }
 
   poll();
-  setInterval(poll, 20000); // packets cover ~60s each; refetching every 20s leaves comfortable margin
+  setInterval(poll, 20000);
   requestAnimationFrame(frameLoop);
 })();
 </script>

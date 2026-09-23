@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Snake Evolution Control Panel</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+  :root{
+    --bg:#080a0d; --surface:#0e1118; --panel:#141720; --border:#1e2330;
+    --border-bright:#2a3045; --ink:#e2e6f0; --dim:#636b82; --dim2:#3a4055;
+    --red:#ff4d4f; --red-glow:rgba(255,77,79,.18); --red-dark:#7a2426;
+    --blue:#3fa9ff; --blue-glow:rgba(63,169,255,.18); --blue-dark:#1d4a73;
+    --apple:#f4c542; --green:#3ddc84; --green-dim:#1a4a2e;
+    --accent:#7c5cfc; --accent-glow:rgba(124,92,252,.2);
+    --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--sans);
+    min-height:100vh;display:flex;flex-direction:column;
+  }
+
+  /* ── Top bar ── */
+  .topbar{
+    background:var(--surface);border-bottom:1px solid var(--border);
+    padding:14px 28px;display:flex;align-items:center;gap:14px;
+    position:sticky;top:0;z-index:100;
+    backdrop-filter:blur(12px);
+  }
+  .topbar .logo{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--ink);}
+  .topbar .logo span.r{color:var(--red);} .topbar .logo span.b{color:var(--blue);}
+  .topbar .badge{
+    font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+    background:rgba(124,92,252,.15);color:var(--accent);border:1px solid rgba(124,92,252,.3);
+    border-radius:4px;padding:2px 7px;font-family:var(--mono);
+  }
+  .topbar .spacer{flex:1;}
+  .topbar .live-status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--dim);}
+  .topbar .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:gpulse 2s infinite;}
+  @keyframes gpulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ── Layout ── */
+  .container{display:flex;gap:20px;padding:24px 24px;max-width:1300px;width:100%;margin:0 auto;flex-wrap:wrap;}
+  .left-col{flex:1;min-width:320px;display:flex;flex-direction:column;gap:16px;}
+  .right-col{width:380px;min-width:300px;display:flex;flex-direction:column;gap:16px;}
+
+  /* ── Card ── */
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    overflow:hidden;
+  }
+  .card-header{
+    padding:14px 18px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:10px;
+  }
+  .card-header .icon{font-size:16px;line-height:1;}
+  .card-header .title{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);}
+  .card-header .sub{font-size:11px;color:var(--dim);margin-left:auto;}
+  .card-body{padding:18px;}
+
+  /* ── Form grid ── */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-grid.single{grid-template-columns:1fr;}
+  .form-group{display:flex;flex-direction:column;gap:6px;}
+  .form-group label{
+    font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dim);font-family:var(--mono);
+  }
+  .form-group .hint{font-size:9.5px;color:var(--dim2);margin-top:-2px;}
+  input[type=number],input[type=text]{
+    background:var(--surface);border:1px solid var(--border-bright);
+    color:var(--ink);font-family:var(--mono);font-size:14px;font-weight:600;
+    border-radius:8px;padding:9px 12px;width:100%;outline:none;
+    transition:border-color .15s,box-shadow .15s;
+    -moz-appearance:textfield;
+  }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+  input[type=number]:focus,input[type=text]:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-glow);
+  }
+  input.red-field:focus{border-color:var(--red);box-shadow:0 0 0 3px var(--red-glow);}
+  input.blue-field:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-glow);}
+
+  /* ── Species section divider ── */
+  .species-header{
+    display:flex;align-items:center;gap:8px;
+    font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:14px;
+    font-family:var(--mono);
+  }
+  .species-header .swatch{width:10px;height:10px;border-radius:3px;}
+
+  /* ── Range slider ── */
+  .range-wrap{display:flex;align-items:center;gap:10px;}
+  .range-wrap span{font-family:var(--mono);font-size:13px;font-weight:700;min-width:30px;text-align:right;color:var(--ink);}
+  input[type=range]{
+    flex:1;-webkit-appearance:none;height:4px;background:var(--border-bright);
+    border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 6px var(--accent-glow);cursor:pointer;
+  }
+
+  /* ── Start button ── */
+  .btn-start{
+    width:100%;padding:16px;border:none;border-radius:10px;cursor:pointer;
+    font-family:var(--sans);font-size:15px;font-weight:700;letter-spacing:.04em;
+    background:linear-gradient(135deg,#7c5cfc,#5a3fd4);
+    color:#fff;
+    box-shadow:0 4px 24px rgba(124,92,252,.35);
+    transition:transform .12s,box-shadow .12s,opacity .12s;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    position:relative;overflow:hidden;
+  }
+  .btn-start::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(135deg,rgba(255,255,255,.1),transparent);
+  }
+  .btn-start:hover{transform:translateY(-1px);box-shadow:0 6px 32px rgba(124,92,252,.5);}
+  .btn-start:active{transform:translateY(0);opacity:.9;}
+  .btn-start:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+  .btn-start .icon{font-size:18px;}
+
+  /* ── Reset button ── */
+  .btn-reset{
+    width:100%;padding:10px;border:1px solid var(--border-bright);border-radius:8px;cursor:pointer;
+    font-family:var(--sans);font-size:12px;font-weight:600;
+    background:transparent;color:var(--dim);
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  .btn-reset:hover{border-color:var(--red);color:var(--red);background:rgba(255,77,79,.05);}
+
+  /* ── Toast notification ── */
+  #toast{
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--panel);border:1px solid var(--border-bright);border-radius:10px;
+    padding:12px 22px;font-size:13px;font-weight:600;
+    opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9999;
+    display:flex;align-items:center;gap:10px;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.success{border-color:rgba(61,220,132,.3);color:var(--green);}
+  #toast.error{border-color:rgba(255,77,79,.3);color:var(--red);}
+
+  /* ── Status panel ── */
+  .stat-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .stat-chip{
+    flex:1;min-width:80px;background:var(--surface);border:1px solid var(--border);
+    border-radius:8px;padding:10px 12px;
+  }
+  .stat-chip .ck{font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-family:var(--mono);}
+  .stat-chip .cv{font-size:18px;font-weight:700;}
+  .stat-chip.red .cv{color:var(--red);}
+  .stat-chip.blue .cv{color:var(--blue);}
+
+  /* ── Clock display ── */
+  .clock-display{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:16px;display:flex;align-items:center;justify-content:center;
+    gap:2px;flex-wrap:wrap;
+  }
+  .cu{display:flex;flex-direction:column;align-items:center;padding:0 8px;}
+  .cu .v{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--ink);line-height:1;}
+  .cu .k{font-size:8px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
+  .csep{font-size:18px;color:var(--dim2);font-family:var(--mono);align-self:flex-start;padding-top:2px;}
+
+  /* ── Info box ── */
+  .info-box{
+    background:rgba(124,92,252,.06);border:1px solid rgba(124,92,252,.2);
+    border-radius:8px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.6;
+  }
+  .info-box strong{color:var(--ink);}
+
+  /* ── Danger zone ── */
+  .danger-card{ border-color:rgba(255,77,79,.2);}
+  .danger-card .card-header{background:rgba(255,77,79,.05);}
+
+  /* ── Activity log ── */
+  #activityLog{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:10px;max-height:140px;overflow-y:auto;
+    font-family:var(--mono);font-size:10.5px;
+    display:flex;flex-direction:column;gap:3px;
+  }
+  .log-entry{color:var(--dim);padding:2px 0;}
+  .log-entry.ok{color:var(--green);}
+  .log-entry.err{color:var(--red);}
+  .log-entry .ts{color:var(--dim2);margin-right:6px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo"><span class="r">RED</span> vs <span class="b">BLUE</span> — Control Panel</span>
+  <span class="badge">ADMIN</span>
+  <span class="spacer"></span>
+  <span class="live-status" id="liveStatus">
+    <span class="live-dot"></span>
+    <span id="liveStatusText">Connecting…</span>
+  </span>
+</div>
+
+<div class="container">
+
+  <!-- ════════════ LEFT COLUMN ════════════ -->
+  <div class="left-col">
+
+    <!-- Grid Settings -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">⬜</span>
+        <span class="title">Grid Settings</span>
+        <span class="sub">Board dimensions</span>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Columns</label>
+            <div class="hint">Width of the board (cells)</div>
+            <input type="number" id="cfg-cols" value="70" min="20" max="200">
+          </div>
+          <div class="form-group">
+            <label>Rows</label>
+            <div class="hint">Height of the board (cells)</div>
+            <input type="number" id="cfg-rows" value="45" min="15" max="120">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Red Species -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🔴</span>
+        <span class="title">Red Snake</span>
+        <span class="sub">Fast · needs runway to turn</span>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Speed (steps/sec)</label>
+            <div class="hint">How many moves per second</div>
+            <input type="number" id="cfg-red-speed" value="9" min="1" max="30" class="red-field">
+          </div>
+          <div class="form-group">
+            <label>Agility (runway steps)</label>
+            <div class="hint">Steps before allowed to turn (0 = instant)</div>
+            <input type="number" id="cfg-red-agility" value="5" min="0" max="20" class="red-field">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blue Species -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🔵</span>
+        <span class="title">Blue Snake</span>
+        <span class="sub">Nimble · slow mover</span>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Speed (steps/sec)</label>
+            <div class="hint">How many moves per second</div>
+            <input type="number" id="cfg-blue-speed" value="4" min="1" max="30" class="blue-field">
+          </div>
+          <div class="form-group">
+            <label>Agility (runway steps)</label>
+            <div class="hint">Steps before allowed to turn (0 = instant)</div>
+            <input type="number" id="cfg-blue-agility" value="0" min="0" max="20" class="blue-field">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ecosystem Settings -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🍎</span>
+        <span class="title">Ecosystem</span>
+        <span class="sub">Population & lifecycle</span>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Apple Count</label>
+            <div class="hint">Apples on board at all times</div>
+            <input type="number" id="cfg-appleCount" value="6" min="1" max="50">
+          </div>
+          <div class="form-group">
+            <label>Lifespan (seconds)</label>
+            <div class="hint">Max age of each snake</div>
+            <input type="number" id="cfg-lifespan" value="30" min="5" max="300">
+          </div>
+          <div class="form-group">
+            <label>Start Count</label>
+            <div class="hint">Snakes per species at genesis</div>
+            <input type="number" id="cfg-startCount" value="1" min="1" max="10">
+          </div>
+          <div class="form-group">
+            <label>Max Snakes</label>
+            <div class="hint">Compute cap (keep ≤ 100 for free tier)</div>
+            <input type="number" id="cfg-maxSnakes" value="60" min="4" max="200">
+          </div>
+          <div class="form-group">
+            <label>Start Length</label>
+            <div class="hint">Body length at spawn</div>
+            <input type="number" id="cfg-startLen" value="3" min="2" max="10">
+          </div>
+          <div class="form-group">
+            <label>Reseed Delay (seconds)</label>
+            <div class="hint">Wait before extinct species re-spawns</div>
+            <input type="number" id="cfg-reseedDelay" value="5" min="1" max="60">
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /left-col -->
+
+  <!-- ════════════ RIGHT COLUMN ════════════ -->
+  <div class="right-col">
+
+    <!-- Launch -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🚀</span>
+        <span class="title">Launch Simulation</span>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="info-box">
+          Clicking <strong>Start Simulation</strong> will <strong>wipe the current run</strong> and begin a fresh genesis with the parameters on the left. All viewers will seamlessly receive the new state within ~20 seconds.
+        </div>
+        <button class="btn-start" id="btnStart" onclick="startSimulation()">
+          <span class="icon">🚀</span> Start Simulation
+        </button>
+        <button class="btn-reset" onclick="resetToDefaults()">↺ Reset form to defaults</button>
+      </div>
+    </div>
+
+    <!-- Live Status -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">📡</span>
+        <span class="title">Live Status</span>
+        <span class="sub" id="lastFetchTime">–</span>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="stat-row">
+          <div class="stat-chip red">
+            <div class="ck">Red Pop.</div>
+            <div class="cv" id="s-red">–</div>
+          </div>
+          <div class="stat-chip blue">
+            <div class="ck">Blue Pop.</div>
+            <div class="cv" id="s-blue">–</div>
+          </div>
+          <div class="stat-chip">
+            <div class="ck">Apples Eaten</div>
+            <div class="cv" id="s-apples">–</div>
+          </div>
+        </div>
+        <!-- Clock -->
+        <div class="clock-display">
+          <div class="cu"><div class="v" id="c-yr">0</div><div class="k">Yr</div></div>
+          <div class="csep">:</div>
+          <div class="cu"><div class="v" id="c-mo">0</div><div class="k">M</div></div>
+          <div class="csep">:</div>
+          <div class="cu"><div class="v" id="c-d">0</div><div class="k">D</div></div>
+          <div class="csep">:</div>
+          <div class="cu"><div class="v" id="c-h">00</div><div class="k">Hrs</div></div>
+          <div class="csep">:</div>
+          <div class="cu"><div class="v" id="c-min">00</div><div class="k">Min</div></div>
+          <div class="csep">:</div>
+          <div class="cu"><div class="v" id="c-sec">00</div><div class="k">Sec</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--dim);text-align:center;" id="s-started">–</div>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">📋</span>
+        <span class="title">Activity Log</span>
+      </div>
+      <div class="card-body">
+        <div id="activityLog"></div>
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">💡</span>
+        <span class="title">Tips</span>
+      </div>
+      <div class="card-body">
+        <div class="info-box" style="font-size:10.5px;line-height:1.7;">
+          • <strong>Speed</strong>: Red at 9 = aggressive, fast eater. Blue at 4 = slower but nimble.<br>
+          • <strong>Agility 0</strong> = can turn any direction instantly.<br>
+          • <strong>Max Snakes ≤ 80</strong> recommended for Vercel free tier compute.<br>
+          • <strong>Apple Count</strong> controls how competitive the ecosystem is.<br>
+          • The simulation keeps running via <strong>GitHub Actions</strong> (every 1 min) even with zero viewers.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+
+</div><!-- /container -->
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── Defaults (mirror lib/simulation.js DEFAULT_CFG) ──
+const DEFAULTS = {
+  cols: 70, rows: 45, appleCount: 6, lifespan: 30,
+  startLen: 3, startCount: 1, maxSnakes: 60, reseedDelay: 5,
+  redSpeed: 9, redAgility: 5, blueSpeed: 4, blueAgility: 0
+};
+
+function getVal(id){ return parseFloat(document.getElementById(id).value) || 0; }
+
+function resetToDefaults(){
+  document.getElementById('cfg-cols').value        = DEFAULTS.cols;
+  document.getElementById('cfg-rows').value        = DEFAULTS.rows;
+  document.getElementById('cfg-appleCount').value  = DEFAULTS.appleCount;
+  document.getElementById('cfg-lifespan').value    = DEFAULTS.lifespan;
+  document.getElementById('cfg-startLen').value    = DEFAULTS.startLen;
+  document.getElementById('cfg-startCount').value  = DEFAULTS.startCount;
+  document.getElementById('cfg-maxSnakes').value   = DEFAULTS.maxSnakes;
+  document.getElementById('cfg-reseedDelay').value = DEFAULTS.reseedDelay;
+  document.getElementById('cfg-red-speed').value   = DEFAULTS.redSpeed;
+  document.getElementById('cfg-red-agility').value = DEFAULTS.redAgility;
+  document.getElementById('cfg-blue-speed').value  = DEFAULTS.blueSpeed;
+  document.getElementById('cfg-blue-agility').value= DEFAULTS.blueAgility;
+  log('Form reset to defaults.');
+}
+
+async function startSimulation(){
+  const btn = document.getElementById('btnStart');
+  btn.disabled = true;
+  btn.textContent = '⏳ Starting…';
+
+  const cfg = {
+    cols:        Math.max(20,  Math.min(200, getVal('cfg-cols'))),
+    rows:        Math.max(15,  Math.min(120, getVal('cfg-rows'))),
+    appleCount:  Math.max(1,   Math.min(50,  getVal('cfg-appleCount'))),
+    lifespan:    Math.max(5,   Math.min(300, getVal('cfg-lifespan'))) * 1000,
+    startLen:    Math.max(2,   Math.min(10,  getVal('cfg-startLen'))),
+    startCount:  Math.max(1,   Math.min(10,  getVal('cfg-startCount'))),
+    maxSnakes:   Math.max(4,   Math.min(200, getVal('cfg-maxSnakes'))),
+    reseedDelay: Math.max(1,   Math.min(60,  getVal('cfg-reseedDelay'))) * 1000,
+    species: {
+      red:  { name:'red',  speed: Math.max(1, Math.min(30, getVal('cfg-red-speed'))),
+                            agility: Math.max(0, Math.min(20, getVal('cfg-red-agility'))) },
+      blue: { name:'blue', speed: Math.max(1, Math.min(30, getVal('cfg-blue-speed'))),
+                            agility: Math.max(0, Math.min(20, getVal('cfg-blue-agility'))) },
+    }
+  };
+
+  try{
+    const res = await fetch('/api/admin-control', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(cfg)
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'Server error '+res.status);
+    showToast('✅ Simulation started! New genesis at ' + new Date(data.startedAt).toLocaleTimeString(), 'success');
+    log('✅ Simulation started. startedAt=' + new Date(data.startedAt).toLocaleTimeString(), 'ok');
+    fetchStatus();
+  }catch(err){
+    showToast('❌ Error: ' + err.message, 'error');
+    log('❌ ' + err.message, 'err');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<span class="icon">🚀</span> Start Simulation';
+  }
+}
+
+// ── Toast ──
+function showToast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type||'');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>{ t.className = ''; }, 4000);
+}
+
+// ── Activity log ──
+function log(msg, cls){
+  const el = document.getElementById('activityLog');
+  const ts = new Date().toLocaleTimeString();
+  const entry = document.createElement('div');
+  entry.className = 'log-entry' + (cls ? ' '+cls : '');
+  entry.innerHTML = '<span class="ts">['+ts+']</span>'+msg;
+  el.insertBefore(entry, el.firstChild);
+  while(el.children.length > 40) el.removeChild(el.lastChild);
+}
+
+// ── Live status polling ──
+let adminStartedAt = null;
+let adminGameTime  = 0;
+let adminAnchorMs  = performance.now();
+
+function setClockAdmin(ms){
+  let totalSec = Math.floor(ms/1000);
+  const years  = Math.floor(totalSec/31536000); totalSec -= years*31536000;
+  const months = Math.floor(totalSec/2592000);  totalSec -= months*2592000;
+  const days   = Math.floor(totalSec/86400);    totalSec -= days*86400;
+  const hours  = Math.floor(totalSec/3600);     totalSec -= hours*3600;
+  const minutes= Math.floor(totalSec/60);
+  const seconds= totalSec%60;
+  const s = (v,p)=>p?String(v).padStart(2,'0'):String(v);
+  document.getElementById('c-yr').textContent  = s(years,false);
+  document.getElementById('c-mo').textContent  = s(months,false);
+  document.getElementById('c-d').textContent   = s(days,false);
+  document.getElementById('c-h').textContent   = s(hours,true);
+  document.getElementById('c-min').textContent = s(minutes,true);
+  document.getElementById('c-sec').textContent = s(seconds,true);
+}
+
+function tickClock(){
+  const elapsed = performance.now() - adminAnchorMs;
+  setClockAdmin(adminGameTime + elapsed);
+  requestAnimationFrame(tickClock);
+}
+
+async function fetchStatus(){
+  try{
+    const res = await fetch('/api/state', {cache:'no-store'});
+    if(!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    document.getElementById('liveStatusText').textContent = 'Live';
+    document.getElementById('lastFetchTime').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    let red=0,blue=0;
+    for(const s of data.snakes){ if(s.species==='red') red++; else blue++; }
+    document.getElementById('s-red').textContent   = red;
+    document.getElementById('s-blue').textContent  = blue;
+    document.getElementById('s-apples').textContent= data.appleEatenCount;
+    if(data.startedAt){
+      adminStartedAt = data.startedAt;
+      document.getElementById('s-started').textContent = 'Started ' + new Date(data.startedAt).toLocaleString();
+    }
+    // update clock anchor
+    adminGameTime = data.gameTime;
+    adminAnchorMs = performance.now();
+
+  }catch(e){
+    document.getElementById('liveStatusText').textContent = 'Offline';
+    log('Status poll failed: '+e.message, 'err');
+  }
+}
+
+// Start polling and clock tick
+fetchStatus();
+setInterval(fetchStatus, 15000);
+requestAnimationFrame(tickClock);
+log('Admin panel loaded.');
+</script>
+
+</body>
+</html>
