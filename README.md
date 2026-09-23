@@ -112,3 +112,4 @@ apply it to a fresh run.
   `maxSnakes` in `lib/simulation.js`, packet size and `/api/tick`'s
   compute time both grow roughly proportionally — keep an eye on it if
   you do.
+"# SurvivalOfTheFittest" 
